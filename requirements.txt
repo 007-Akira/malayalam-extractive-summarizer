@@ -1,0 +1,9 @@
+torch
+sentence-transformers
+numpy
+scikit-learn
+streamlit
+pandas
+rouge-score
+tqdm
+
