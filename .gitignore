@@ -1,0 +1,15 @@
+# Virtual Environment
+venv/
+env/
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Massive Data & Model Files (We don't push these to GitHub)
+data/cached_embeddings.pt
+data/news_data.csv
+models/
+
+# OS Files
+.DS_Store
