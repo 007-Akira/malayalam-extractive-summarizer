@@ -25,7 +25,8 @@ def main():
         sentences = segment_malayalam_text(row['Text'])
         target_summary = str(row['Summary'])
         
-        if len(sentences) < 3: continue
+        total_sentences = len(sentences)
+        if total_sentences < 3: continue
             
         scores = []
         for i, sentence in enumerate(sentences):
@@ -38,8 +39,10 @@ def main():
         for i, _, sentence in scores:
             label = 1 if i in top_indices else 0
             training_data.append({
-                'sentence': sentence,
-                'label': label
+                'Sentence': sentence,
+                'Label': label,
+                'Sentence_Index': i,
+                'Total_Sentences': total_sentences
             })
             
     # Save as a compressed gzip file to bypass GitHub's 100MB limit
