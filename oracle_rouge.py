@@ -19,7 +19,7 @@ def main():
     training_data = []
     
     print("\n2. Generating Binary Labels via Oracle ROUGE...")
-    print("   (This is entirely CPU bound. It may take 1 to 2 hours on an i5 chip.)")
+    
     
     for _, row in tqdm(df.iterrows(), total=len(df)):
         sentences = segment_malayalam_text(row['Text'])
