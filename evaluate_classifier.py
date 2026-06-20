@@ -17,7 +17,7 @@ class SentenceClassifier(nn.Module):
 
 def main():
     print("1. Loading Evaluation Data...")
-    df = pd.read_csv("data/gold_dataset_unannotated.csv")
+    df = pd.read_csv("data/platinum_batch_700_ANNOTATED.csv")
     df['Your_Extractive_Labels'] = df['Your_Extractive_Labels'].fillna('')
     annotated_df = df[df['Your_Extractive_Labels'].str.strip() != '']
     
