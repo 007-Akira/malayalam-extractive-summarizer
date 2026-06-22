@@ -1,24 +1,14 @@
 import torch
-import torch.nn as nn
 import re
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# 1. Rebuild the exact Brain Architecture
-class SentenceClassifier(nn.Module):
-    def __init__(self, input_dim=768):
-        super(SentenceClassifier, self).__init__()
-        self.linear = nn.Linear(input_dim, 1)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.linear(x)
-        return self.sigmoid(x)
+# Import the new architecture!
+from neuro_symbolic_fusion import HybridFusionClassifier, MalayalamFeatureExtractor
 
 def segment_malayalam_text(text):
     """Splits raw text into sentences cleanly."""
-    # FIX: Looks for punctuation and properly keeps them separated
     sentences = re.split(r'(?<=[.!?])\s+', text.strip())
     return [s.strip() for s in sentences if s.strip()]
 
@@ -66,38 +56,50 @@ def extract_with_mmr(embeddings, probabilities, k=3, diversity=0.3):
     return selected_indices
 
 def summarize_article(raw_text, k=3, diversity=0.3):
-    """The main inference pipeline with MMR."""
+    """The main inference pipeline with Dual-Path Hybrid AI & MMR."""
     sentences = segment_malayalam_text(raw_text)
+    total_sentences = len(sentences)
     
-    if len(sentences) <= k:
+    if total_sentences <= k:
         return "Article is too short to summarize.", sentences
         
-    print(f"-> Article has {len(sentences)} sentences. Extracting top {k} with MMR...")
+    print(f"-> Article has {total_sentences} sentences. Extracting top {k} with Hybrid AI & MMR...")
     
-    # 1. Load the Language Engine
+    # 1. Load the Semantic Engine
     labse_model = SentenceTransformer("sentence-transformers/LaBSE")
     
-    # 2. Load Your Custom Brain
-    classifier = SentenceClassifier(input_dim=768)
-    classifier.load_state_dict(torch.load("models/malayalam_sentence_classifier.pt", weights_only=True))
+    # 2. Load the Symbolic Engine
+    feature_extractor = MalayalamFeatureExtractor()
+    
+    # 3. Load Your Custom Hybrid Brain
+    classifier = HybridFusionClassifier(labse_dim=768, symbolic_dim=4)
+    # Make sure Godly pushes this new .pt file to your GitHub!
+    classifier.load_state_dict(torch.load("models/malayalam_hybrid_classifier.pt", weights_only=True))
     classifier.eval()
     
-    # 3. Vectorize the raw sentences
+    # 4. Vectorize Data (Path A: Semantics)
     embeddings = labse_model.encode(sentences)
     X_tensor = torch.tensor(embeddings, dtype=torch.float32)
     
-    # 4. Neural Network Scoring
+    # 5. Extract Features (Path B: Linguistics)
+    symbolic_features = []
+    for i, sent in enumerate(sentences):
+        feats = feature_extractor.extract_features(sent, i, total_sentences)
+        symbolic_features.append(feats)
+    S_tensor = torch.tensor(symbolic_features, dtype=torch.float32)
+    
+    # 6. Dual-Path Neural Network Scoring
     with torch.no_grad():
-        probabilities = classifier(X_tensor).squeeze().numpy()
+        # Notice how we pass BOTH tensors into the network now!
+        probabilities = classifier(X_tensor, S_tensor).squeeze().numpy()
         
-    # 5. Extract using MMR
+    # 7. Extract using MMR
     top_k_indices = extract_with_mmr(embeddings, probabilities, k=k, diversity=diversity)
     
-    # 6. Chronological Reordering
+    # 8. Chronological Reordering
     chronological_indices = sorted(top_k_indices)
     summary_sentences = [sentences[i] for i in chronological_indices]
     
-    # FIX: Added the space here so sentences don't stick together
     final_summary = " ".join(summary_sentences)
     
     return final_summary, summary_sentences
@@ -112,10 +114,9 @@ def main():
     """
     
     print("\n" + "="*50)
-    print("🤖 MALAYALAM AI SUMMARIZER RUNNING (MMR ENABLED)...")
+    print("🤖 HYBRID NEURO-SYMBOLIC AI RUNNING...")
     print("="*50)
     
-    # You can tweak diversity between 0.1 (low penalty) and 0.8 (high penalty)
     summary_text, extracted_list = summarize_article(sample_article, k=2, diversity=0.4)
     
     print("\n✨ FINAL EXTRACTIVE SUMMARY ✨")
