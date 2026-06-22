@@ -12,14 +12,37 @@ def segment_malayalam_text(text):
     sentences = re.split(r'(?<=[.!?])\s+', text.strip())
     return [s.strip() for s in sentences if s.strip()]
 
-def extract_with_mmr(embeddings, probabilities, k=3, diversity=0.3):
+def compute_dynamic_diversity(embeddings):
     """
-    Maximal Marginal Relevance (MMR) Extraction.
+    DYNAMIC MMR: Calculates the average semantic overlap of the article.
+    If the article is highly repetitive, it applies a HIGH diversity penalty.
+    If the article is naturally diverse, it applies a LOW diversity penalty.
+    """
+    if len(embeddings) <= 1:
+        return 0.3
+        
+    sim_matrix = cosine_similarity(embeddings)
+    np.fill_diagonal(sim_matrix, 0)
+    
+    avg_sim = sim_matrix.sum() / (len(embeddings) * (len(embeddings) - 1))
+    
+    # Map the average similarity to a logical penalty range
+    dynamic_penalty = max(0.1, min(0.6, avg_sim))
+    return round(dynamic_penalty, 2)
+
+def extract_with_mmr(embeddings, probabilities, k=3, diversity="auto"):
+    """
+    Maximal Marginal Relevance (MMR) Extraction with Dynamic Tuning.
     Balances picking the most 'important' sentences with 'diverse' sentences.
     """
     num_sentences = len(probabilities)
     if num_sentences <= k:
         return list(range(num_sentences))
+
+    # Auto-Tune MMR
+    if diversity == "auto":
+        diversity = compute_dynamic_diversity(embeddings)
+        print(f"   [Dynamic MMR] Auto-tuned diversity penalty to: {diversity}")
 
     selected_indices = []
     unselected_indices = list(range(num_sentences))
@@ -55,15 +78,15 @@ def extract_with_mmr(embeddings, probabilities, k=3, diversity=0.3):
 
     return selected_indices
 
-def summarize_article(raw_text, k=3, diversity=0.3):
-    """The main inference pipeline with Dual-Path Hybrid AI & MMR."""
+def summarize_article(raw_text, k=3, diversity="auto"):
+    """The main inference pipeline with Dual-Path Hybrid AI & Dynamic MMR."""
     sentences = segment_malayalam_text(raw_text)
     total_sentences = len(sentences)
     
     if total_sentences <= k:
         return "Article is too short to summarize.", sentences
         
-    print(f"-> Article has {total_sentences} sentences. Extracting top {k} with Hybrid AI & MMR...")
+    print(f"-> Article has {total_sentences} sentences. Extracting top {k} with Hybrid AI & D-MMR...")
     
     # 1. Load the Semantic Engine
     labse_model = SentenceTransformer("sentence-transformers/LaBSE")
@@ -73,8 +96,8 @@ def summarize_article(raw_text, k=3, diversity=0.3):
     
     # 3. Load Your Custom Hybrid Brain
     classifier = HybridFusionClassifier(labse_dim=768, symbolic_dim=4)
-    # Make sure Godly pushes this new .pt file to your GitHub!
-    classifier.load_state_dict(torch.load("models/malayalam_hybrid_classifier.pt", weights_only=True))
+    # Using map_location='cpu' so it safely loads on your laptop
+    classifier.load_state_dict(torch.load("models/malayalam_hybrid_classifier.pt", map_location=torch.device('cpu'), weights_only=True))
     classifier.eval()
     
     # 4. Vectorize Data (Path A: Semantics)
@@ -90,10 +113,11 @@ def summarize_article(raw_text, k=3, diversity=0.3):
     
     # 6. Dual-Path Neural Network Scoring
     with torch.no_grad():
-        # Notice how we pass BOTH tensors into the network now!
         probabilities = classifier(X_tensor, S_tensor).squeeze().numpy()
+        # Handle single sentence edge case safely
+        if probabilities.ndim == 0: probabilities = np.array([probabilities])
         
-    # 7. Extract using MMR
+    # 7. Extract using Dynamic MMR
     top_k_indices = extract_with_mmr(embeddings, probabilities, k=k, diversity=diversity)
     
     # 8. Chronological Reordering
@@ -114,10 +138,10 @@ def main():
     """
     
     print("\n" + "="*50)
-    print("🤖 HYBRID NEURO-SYMBOLIC AI RUNNING...")
+    print("🤖 HYBRID NEURO-SYMBOLIC AI RUNNING (D-MMR)...")
     print("="*50)
     
-    summary_text, extracted_list = summarize_article(sample_article, k=2, diversity=0.4)
+    summary_text, extracted_list = summarize_article(sample_article, k=2, diversity="auto")
     
     print("\n✨ FINAL EXTRACTIVE SUMMARY ✨")
     print("-" * 50)
