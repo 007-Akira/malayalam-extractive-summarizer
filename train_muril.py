@@ -17,7 +17,7 @@ class MalayalamHybridDataset(Dataset):
         
         # We need LaBSE to vectorize the text on the fly (or load pre-computed)
         # Change this line in train_hybrid.py:
-        self.labse = SentenceTransformer("l3cube-pune/malayalam-sentence-bert")
+        self.labse = SentenceTransformer("l3cube-pune/indic-sentence-bert-nli")
         self.feature_extractor = MalayalamFeatureExtractor()
         
         # We assume your CSV has: 'Sentence', 'Label', 'Sentence_Index', 'Total_Sentences'
