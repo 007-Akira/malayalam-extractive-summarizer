@@ -280,7 +280,7 @@ export default function App() {
     <main className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">M</div>
+          <img alt="" className="brand-mark" src="/logo.svg" />
           <div className="brand-copy">
             <strong>Malayalam News Extractive Summarizer</strong>
           </div>

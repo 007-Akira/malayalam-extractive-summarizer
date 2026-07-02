@@ -165,15 +165,11 @@ button:disabled {
 }
 
 .brand-mark {
-  align-items: center;
-  background: #F59E0B;
   border-radius: 8px;
-  color: #0A0A0A;
-  display: flex;
-  font-size: 1rem;
-  font-weight: 850;
   height: 2.5rem;
-  justify-content: center;
+  object-fit: contain;
+  overflow: hidden;
+  user-select: none;
   width: 2.5rem;
 }
 
