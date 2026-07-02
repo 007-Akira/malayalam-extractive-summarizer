@@ -1,17 +1,34 @@
 import {
+  Bot,
+  Check,
+  ChevronDown,
+  ChevronRight,
   Clipboard,
   Clock3,
   FileText,
   MessageSquarePlus,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Pencil,
   RotateCcw,
   Send,
   SlidersHorizontal,
+  Square,
   Trash2,
+  X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 const HISTORY_KEY = "malayalam-summarizer-chats";
+const WORD_WARNING_LIMIT = 900;
+const WORD_DANGER_LIMIT = 1200;
+const MODEL_OPTIONS = [
+  { value: "chotta_bheem", label: "Chotta Bheem" },
+  { value: "hybrid_classifier", label: "Hybrid Classifier" },
+  { value: "muril_classifier", label: "MuRIL Classifier" },
+  { value: "sentence_classifier", label: "Sentence Classifier" },
+];
 
 function loadChats() {
   try {
@@ -51,6 +68,45 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
+function clampSentenceCount(value) {
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) return 1;
+  return Math.min(10, Math.max(1, parsed));
+}
+
+function formatSummaryText(message) {
+  if (message.settings?.format === "paragraph") {
+    return message.content;
+  }
+
+  return message.sentences?.join("\n") || message.content;
+}
+
+function isMalayalamVoice(voice) {
+  const signature = `${voice.lang} ${voice.name}`.toLowerCase();
+  return signature.includes("ml") || signature.includes("malayalam");
+}
+
+function voiceScore(voice) {
+  const signature = `${voice.lang} ${voice.name}`.toLowerCase();
+  const femaleHints = ["female", "woman", "sobhana", "lekha", "veena", "swara", "heera", "zira", "samantha", "karen"];
+  let score = 0;
+
+  if (isMalayalamVoice(voice)) score += 100;
+  if (signature.includes("ml-in")) score += 30;
+  if (signature.includes("natural") || signature.includes("online")) score += 18;
+  if (femaleHints.some((hint) => signature.includes(hint))) score += 12;
+  if (voice.localService === false) score += 4;
+
+  return score;
+}
+
+function pickMalayalamVoice(voices) {
+  if (!voices.length) return null;
+
+  return [...voices].sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null;
+}
+
 export default function App() {
   const [chats, setChats] = useState(() => {
     const stored = loadChats();
@@ -63,15 +119,46 @@ export default function App() {
   const [draft, setDraft] = useState("");
   const [undoStack, setUndoStack] = useState([]);
   const [sentenceCount, setSentenceCount] = useState(3);
+  const [selectedModel, setSelectedModel] = useState("chotta_bheem");
   const [dynamicMmr, setDynamicMmr] = useState(true);
   const [diversity, setDiversity] = useState(0.3);
+  const [summaryFormat, setSummaryFormat] = useState("bullets");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [copiedMessageId, setCopiedMessageId] = useState("");
+  const [renamingChatId, setRenamingChatId] = useState("");
+  const [renameValue, setRenameValue] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [settingsCollapsed, setSettingsCollapsed] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState("");
+  const [speechPaused, setSpeechPaused] = useState(false);
+  const [speechVoices, setSpeechVoices] = useState([]);
 
   const activeChat = useMemo(() => {
     return chats.find((chat) => chat.id === activeChatId) || chats[0];
   }, [activeChatId, chats]);
+  const draftWordCount = useMemo(() => draft.trim().split(/\s+/).filter(Boolean).length, [draft]);
+  const wordCountTone =
+    draftWordCount >= WORD_DANGER_LIMIT ? "danger" : draftWordCount >= WORD_WARNING_LIMIT ? "warn" : "";
+  const activeSpeechVoice = useMemo(() => {
+    return pickMalayalamVoice(speechVoices);
+  }, [speechVoices]);
+
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return undefined;
+
+    function loadVoices() {
+      setSpeechVoices(window.speechSynthesis.getVoices());
+    }
+
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    return () => {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
 
   function persist(nextChats) {
     setChats(nextChats);
@@ -107,6 +194,28 @@ export default function App() {
     setError("");
   }
 
+  function startRename(chat) {
+    setRenamingChatId(chat.id);
+    setRenameValue(chat.title);
+  }
+
+  function cancelRename() {
+    setRenamingChatId("");
+    setRenameValue("");
+  }
+
+  function saveRename(chatId) {
+    const nextTitle = renameValue.trim();
+    if (!nextTitle) {
+      cancelRename();
+      return;
+    }
+
+    const nextChats = chats.map((chat) => (chat.id === chatId ? { ...chat, title: nextTitle } : chat));
+    persist(nextChats);
+    cancelRename();
+  }
+
   function updateDraft(value) {
     setUndoStack((stack) => (stack.at(-1) === draft ? stack : [...stack, draft]));
     setDraft(value);
@@ -122,7 +231,7 @@ export default function App() {
   }
 
   async function copySummary(message) {
-    const text = message.sentences?.join("\n") || message.content;
+    const text = formatSummaryText(message);
     if (!text) return;
 
     try {
@@ -132,6 +241,58 @@ export default function App() {
     } catch {
       setError("Copy failed. Select the summary text and copy it manually.");
     }
+  }
+
+  function speakSummary(message) {
+    if (!("speechSynthesis" in window)) {
+      setError("Text-to-speech is not supported in this browser.");
+      return;
+    }
+
+    if (speakingMessageId === message.id && speechPaused) {
+      window.speechSynthesis.resume();
+      setSpeechPaused(false);
+      return;
+    }
+
+    if (speakingMessageId === message.id) {
+      window.speechSynthesis.pause();
+      setSpeechPaused(true);
+      return;
+    }
+
+    const text = formatSummaryText(message);
+    if (!text) return;
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = activeSpeechVoice?.lang || "ml-IN";
+    utterance.rate = 0.88;
+    utterance.pitch = 1.08;
+    utterance.voice = activeSpeechVoice;
+    utterance.onend = () => {
+      setSpeakingMessageId("");
+      setSpeechPaused(false);
+    };
+    utterance.onerror = () => {
+      setSpeakingMessageId("");
+      setSpeechPaused(false);
+      setError("Unable to read this summary aloud in the current browser voice setup.");
+    };
+
+    setError("");
+    setSpeakingMessageId(message.id);
+    setSpeechPaused(false);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function stopSpeaking() {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setSpeakingMessageId("");
+    setSpeechPaused(false);
   }
 
   async function submitSummary() {
@@ -149,6 +310,7 @@ export default function App() {
           text,
           sentence_count: sentenceCount,
           diversity: dynamicMmr ? "auto" : diversity,
+          model: selectedModel,
         }),
       });
 
@@ -183,6 +345,8 @@ export default function App() {
               settings: {
                 sentenceCount,
                 diversity: dynamicMmr ? "auto" : diversity,
+                format: summaryFormat,
+                model: payload.model || selectedModel,
               },
             },
           ],
@@ -200,20 +364,27 @@ export default function App() {
   }
 
   return (
-    <main className="app">
+    <main className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">M</div>
-          <div>
-            <strong>Malayalam AI</strong>
-            <span>Extractive workspace</span>
+          <div className="brand-copy">
+            <strong>Malayalam News Extractive Summarizer</strong>
           </div>
+          <button
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="sidebar-toggle"
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+          </button>
         </div>
 
         <div className="sidebar-section">
-          <button className="new-chat-button" onClick={createChat}>
+          <button className="new-chat-button" onClick={createChat} title="New chat">
             <MessageSquarePlus size={18} />
-            New chat
+            <span>New chat</span>
           </button>
         </div>
 
@@ -225,56 +396,143 @@ export default function App() {
                 className={`history-item ${chat.id === activeChat.id ? "active" : ""}`}
                 key={chat.id}
               >
-                <button className="history-main" onClick={() => setActiveChatId(chat.id)}>
-                  <span>{chat.title}</span>
-                  <small>
-                    <Clock3 size={13} />
-                    {formatDate(chat.updatedAt)}
-                  </small>
-                </button>
-                <button
-                  aria-label="Delete chat"
-                  className="history-delete"
-                  onClick={() => deleteChat(chat.id)}
-                  title="Delete chat"
-                >
-                  <Trash2 size={15} />
-                </button>
+                {renamingChatId === chat.id ? (
+                  <div className="rename-row">
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(event) => setRenameValue(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") saveRename(chat.id);
+                        if (event.key === "Escape") cancelRename();
+                      }}
+                    />
+                    <button aria-label="Save chat name" onClick={() => saveRename(chat.id)} title="Save">
+                      <Check size={14} />
+                    </button>
+                    <button aria-label="Cancel rename" onClick={cancelRename} title="Cancel">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <button className="history-main" onClick={() => setActiveChatId(chat.id)}>
+                    <span>{chat.title}</span>
+                    <small>
+                      <Clock3 size={13} />
+                      {formatDate(chat.updatedAt)}
+                    </small>
+                  </button>
+                )}
+                {renamingChatId !== chat.id && (
+                  <button
+                    aria-label="Rename chat"
+                    className="history-action"
+                    onClick={() => startRename(chat)}
+                    title="Rename chat"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                )}
+                {renamingChatId !== chat.id && (
+                  <button
+                    aria-label="Delete chat"
+                    className="history-action history-delete"
+                    onClick={() => deleteChat(chat.id)}
+                    title="Delete chat"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
         </div>
 
-        <div className="sidebar-section settings">
-          <div className="section-label">
-            <SlidersHorizontal size={15} />
-            Settings
-          </div>
-
-          <label>
-            <span className="setting-topline">
-              Sentence count
-              <strong>{sentenceCount}</strong>
+        <div className={`sidebar-section settings ${settingsCollapsed ? "collapsed" : ""}`}>
+          <button
+            aria-expanded={!settingsCollapsed}
+            className="settings-toggle"
+            onClick={() => setSettingsCollapsed((collapsed) => !collapsed)}
+            title={settingsCollapsed ? "Expand settings" : "Collapse settings"}
+            type="button"
+          >
+            <span className="section-label">
+              <SlidersHorizontal size={15} />
+              Settings
             </span>
-            <input
-              min="1"
-              max="10"
-              type="range"
-              value={sentenceCount}
-              onChange={(event) => setSentenceCount(Number(event.target.value))}
-            />
-          </label>
+            {settingsCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+          </button>
 
-          <label className="check-row">
-            <input
-              checked={dynamicMmr}
-              type="checkbox"
-              onChange={(event) => setDynamicMmr(event.target.checked)}
-            />
-            Dynamic MMR
-          </label>
+          {!settingsCollapsed && (
+            <div className="settings-body">
+              <label>
+                <span className="setting-topline">Model</span>
+                <select
+                  className="model-select"
+                  value={selectedModel}
+                  onChange={(event) => setSelectedModel(event.target.value)}
+                >
+                  {MODEL_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          {!dynamicMmr && (
+              <label>
+                <span className="setting-topline">
+                  Sentence count
+                  <strong>{sentenceCount}</strong>
+                </span>
+                <input
+                  min="1"
+                  max="10"
+                  type="range"
+                  value={sentenceCount}
+                  onChange={(event) => setSentenceCount(Number(event.target.value))}
+                />
+                <input
+                  aria-label="Exact sentence count"
+                  className="number-input"
+                  min="1"
+                  max="10"
+                  type="number"
+                  value={sentenceCount}
+                  onChange={(event) => setSentenceCount(clampSentenceCount(event.target.value))}
+                />
+              </label>
+
+              <div className="format-toggle">
+                <span>Format</span>
+                <div>
+                  <button
+                    className={summaryFormat === "bullets" ? "active" : ""}
+                    onClick={() => setSummaryFormat("bullets")}
+                    type="button"
+                  >
+                    Bullets
+                  </button>
+                  <button
+                    className={summaryFormat === "paragraph" ? "active" : ""}
+                    onClick={() => setSummaryFormat("paragraph")}
+                    type="button"
+                  >
+                    Paragraph
+                  </button>
+                </div>
+              </div>
+
+              <label className="check-row">
+                <input
+                  checked={dynamicMmr}
+                  type="checkbox"
+                  onChange={(event) => setDynamicMmr(event.target.checked)}
+                />
+                Dynamic MMR
+              </label>
+
+              {!dynamicMmr && (
             <label>
               <span className="setting-topline">
                 Diversity penalty
@@ -289,22 +547,13 @@ export default function App() {
                 onChange={(event) => setDiversity(Number(event.target.value))}
               />
             </label>
+              )}
+            </div>
           )}
         </div>
       </aside>
 
       <section className="workspace">
-        <header className="topbar">
-          <div>
-            <h1>Malayalam Extractive Summarizer</h1>
-            <p>Summarize Malayalam articles in a clean chat workspace with saved history.</p>
-          </div>
-          <div className="topbar-status">
-            <span>{activeChat.messages.filter((message) => message.role === "assistant").length}</span>
-            summaries
-          </div>
-        </header>
-
         <section className="conversation">
           {activeChat.messages.length === 0 ? (
             <div className="welcome">
@@ -322,15 +571,43 @@ export default function App() {
                     <div className="message-label">{message.role === "user" ? "Article" : "Summary"}</div>
                     <span>{formatDate(message.createdAt)}</span>
                   </div>
-                  {message.role === "assistant" && (
-                    <button className="icon-button" onClick={() => copySummary(message)} title="Copy summary">
+                  <div className="message-actions">
+                    {message.role === "assistant" && (
+                      <>
+                        <button
+                          aria-label={speakingMessageId === message.id && !speechPaused ? "Pause summary audio" : "Read summary aloud"}
+                          className={`icon-button listen-button ${speakingMessageId === message.id ? "active" : ""}`}
+                          onClick={() => speakSummary(message)}
+                          title={speakingMessageId === message.id && !speechPaused ? "Pause" : "Listen"}
+                        >
+                          <Bot size={17} />
+                        </button>
+                        {speakingMessageId === message.id && (
+                          <button
+                            aria-label="Stop summary audio"
+                            className="icon-button stop-audio-button"
+                            onClick={stopSpeaking}
+                            title="Stop"
+                          >
+                            <Square size={14} />
+                          </button>
+                        )}
+                      </>
+                    )}
+                    <button
+                      aria-label={`Copy ${message.role === "user" ? "article" : "summary"}`}
+                      className={`icon-button ${copiedMessageId === message.id ? "copied" : ""}`}
+                      onClick={() => copySummary(message)}
+                      title={copiedMessageId === message.id ? "Copied" : "Copy"}
+                    >
                       <Clipboard size={16} />
-                      {copiedMessageId === message.id ? "Copied" : "Copy"}
                     </button>
-                  )}
+                  </div>
                 </div>
                 {message.role === "user" ? (
                   <p>{message.content}</p>
+                ) : message.settings?.format === "paragraph" ? (
+                  <p className="summary-paragraph">{message.content}</p>
                 ) : (
                   <ul>
                     {message.sentences.map((sentence, index) => (
@@ -361,7 +638,11 @@ export default function App() {
         <section className="composer">
           <div className="composer-header">
             <span>Article input</span>
-            <small>{draft.trim().split(/\s+/).filter(Boolean).length} words</small>
+            <small className={`word-count ${wordCountTone}`}>
+              {draftWordCount} words
+              {wordCountTone === "warn" && " - getting long"}
+              {wordCountTone === "danger" && " - consider shortening"}
+            </small>
           </div>
           <textarea
             value={draft}
@@ -370,9 +651,8 @@ export default function App() {
           />
           {error && <div className="error">{error}</div>}
           <div className="composer-actions">
-            <button className="secondary-button" disabled={!undoStack.length} onClick={undoDraft}>
+            <button className="secondary-button" disabled={!undoStack.length} onClick={undoDraft} title="Undo">
               <RotateCcw size={17} />
-              Undo
             </button>
             <button className="send-button" disabled={!draft.trim() || isLoading} onClick={submitSummary}>
               <Send size={17} />
