@@ -379,10 +379,7 @@ export default function App() {
           {!settingsCollapsed && (
             <div className="settings-body">
               <label>
-                <span className="setting-topline">
-                  Model
-                  <sub className="recommended-tag">recommended</sub>
-                </span>
+                <span className="setting-topline">Model</span>
                 <select
                   className="model-select"
                   disabled={isLoading}
@@ -395,6 +392,11 @@ export default function App() {
                     </option>
                   ))}
                 </select>
+                {selectedModel === "chotta_bheem_v2" && (
+                  <small className="selected-model-note">
+                    Chotta Bheem V2 <sub className="recommended-tag">recommended</sub>
+                  </small>
+                )}
               </label>
 
               <label>

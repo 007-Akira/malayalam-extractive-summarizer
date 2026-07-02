@@ -445,6 +445,15 @@ button:disabled {
   font-weight: 740;
 }
 
+.selected-model-note {
+  align-items: baseline;
+  color: #A3A3A3;
+  display: flex;
+  font-size: 0.76rem;
+  font-weight: 720;
+  gap: 0.25rem;
+}
+
 .recommended-tag {
   background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.26);
