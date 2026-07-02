@@ -5,11 +5,30 @@ env/
 # Python Cache
 __pycache__/
 *.pyc
+.pytest_cache/
 
-# Massive Data & Model Files (We don't push these to GitHub)
-data/cached_embeddings.pt
-data/news_data.csv
+# Raw/private source data and model files
+news.csv
+news_data.csv
+**/news.csv
+**/news_data.csv
+*.gz
 models/
+backend/models/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Local app/runtime state
+.summarizer_chat_history.json
+backend/.summarizer_chat_history.json
+frontend/.summarizer_chat_history.json
+
+# Frontend dependencies and builds
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
 
 # OS Files
 .DS_Store
