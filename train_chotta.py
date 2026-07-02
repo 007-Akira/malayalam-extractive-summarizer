@@ -29,8 +29,8 @@ class MalayalamHybridDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
-        sentence = str(row['Sentence'])
-        label = float(row['Label']) 
+        sentence = str(row['sentence'])
+        label = float(row['label']) 
         
         # 1. Path A: Deep Semantics
         labse_embedding = self.labse.encode(sentence)
