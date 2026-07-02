@@ -22,7 +22,7 @@ const HISTORY_KEY = "malayalam-summarizer-chats";
 const WORD_WARNING_LIMIT = 900;
 const WORD_DANGER_LIMIT = 1200;
 const MODEL_OPTIONS = [
-  { value: "chotta_bheem_v2", label: "Chotta Bheem V2" },
+  { value: "chotta_bheem_v2", label: "Chotta Bheem V2", recommended: true },
   { value: "chotta_bheem", label: "Chotta Bheem" },
   { value: "hybrid_classifier", label: "Hybrid Classifier" },
   { value: "muril_classifier", label: "MuRIL Classifier" },
@@ -98,7 +98,7 @@ export default function App() {
   const [draft, setDraft] = useState("");
   const [undoStack, setUndoStack] = useState([]);
   const [sentenceCount, setSentenceCount] = useState(3);
-  const [selectedModel, setSelectedModel] = useState("chotta_bheem");
+  const [selectedModel, setSelectedModel] = useState("chotta_bheem_v2");
   const [dynamicMmr, setDynamicMmr] = useState(true);
   const [diversity, setDiversity] = useState(0.3);
   const [summaryFormat, setSummaryFormat] = useState("bullets");
@@ -379,7 +379,10 @@ export default function App() {
           {!settingsCollapsed && (
             <div className="settings-body">
               <label>
-                <span className="setting-topline">Model</span>
+                <span className="setting-topline">
+                  Model
+                  <sub className="recommended-tag">recommended</sub>
+                </span>
                 <select
                   className="model-select"
                   disabled={isLoading}
@@ -388,7 +391,7 @@ export default function App() {
                 >
                   {MODEL_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
-                      {option.label}
+                      {option.recommended ? `${option.label} - recommended` : option.label}
                     </option>
                   ))}
                 </select>

@@ -445,6 +445,20 @@ button:disabled {
   font-weight: 740;
 }
 
+.recommended-tag {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.26);
+  border-radius: 999px;
+  color: #F59E0B;
+  font-size: 0.58rem;
+  font-weight: 820;
+  line-height: 1;
+  margin-left: 0.45rem;
+  padding: 0.18rem 0.34rem;
+  text-transform: uppercase;
+  vertical-align: sub;
+}
+
 .settings input[type="range"] {
   accent-color: #F59E0B;
   width: 100%;
