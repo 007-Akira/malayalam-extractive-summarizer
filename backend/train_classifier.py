@@ -23,7 +23,7 @@ def main():
     print(f"1. Hardware Engine Activated: {device}")
 
     print("\n2. Loading Training Data...")
-    df = pd.read_csv("data/training_data.csv.gz", compression="gzip")
+    df = pd.read_csv("data/training_data.csv")
     sentences = df['sentence'].tolist()
     labels = df['label'].tolist()
     

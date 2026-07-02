@@ -56,7 +56,7 @@ def main():
     
     # 1. Load Data
     # Note: Point this to wherever your 90k training data is on the M5
-    dataset = MalayalamHybridDataset("data/training_data.csv.gz") 
+    dataset = MalayalamHybridDataset("data/training_data.csv") 
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
     
     # 2. Initialize the Dual-Path Brain

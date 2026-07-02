@@ -1,3 +1,5 @@
+fastapi
+uvicorn[standard]
 torch
 sentence-transformers
 numpy
@@ -6,4 +8,3 @@ streamlit
 pandas
 rouge-score
 tqdm
-

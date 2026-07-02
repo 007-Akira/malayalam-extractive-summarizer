@@ -1,11 +1,15 @@
 import torch
 import re
 import numpy as np
+from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # Import the new architecture!
 from neuro_symbolic_fusion import HybridFusionClassifier, MalayalamFeatureExtractor
+
+
+BASE_DIR = Path(__file__).resolve().parent
 
 def segment_malayalam_text(text):
     """Splits raw text into sentences cleanly."""
@@ -108,7 +112,7 @@ def summarize_article(raw_text, k=None, diversity="auto"):
     # 3. Load Your Custom Hybrid Brain
     classifier = HybridFusionClassifier(labse_dim=768, symbolic_dim=4)
     # Using map_location='cpu' so it safely loads on your laptop
-    classifier.load_state_dict(torch.load("models/malayalam_hybrid_classifier.pt", map_location=torch.device('cpu'), weights_only=True))
+    classifier.load_state_dict(torch.load(BASE_DIR / "models/malayalam_hybrid_classifier.pt", map_location=torch.device('cpu'), weights_only=True))
     classifier.eval()
     
     # 4. Vectorize Data (Path A: Semantics)

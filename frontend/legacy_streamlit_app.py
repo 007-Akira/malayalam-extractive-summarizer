@@ -1,10 +1,15 @@
 import json
+import sys
 from datetime import datetime
 from html import escape
 from pathlib import Path
 from uuid import uuid4
 
 import streamlit as st
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 
 from summarize import summarize_article
 
