@@ -1,4 +1,13 @@
-import { Clock3, MessageSquarePlus, RotateCcw, Send, SlidersHorizontal } from "lucide-react";
+import {
+  Clipboard,
+  Clock3,
+  FileText,
+  MessageSquarePlus,
+  RotateCcw,
+  Send,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
@@ -58,6 +67,7 @@ export default function App() {
   const [diversity, setDiversity] = useState(0.3);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [copiedMessageId, setCopiedMessageId] = useState("");
 
   const activeChat = useMemo(() => {
     return chats.find((chat) => chat.id === activeChatId) || chats[0];
@@ -78,6 +88,25 @@ export default function App() {
     setError("");
   }
 
+  function deleteChat(chatId) {
+    const nextChats = chats.filter((chat) => chat.id !== chatId);
+
+    if (!nextChats.length) {
+      const chat = makeChat();
+      persist([chat]);
+      setActiveChatId(chat.id);
+    } else {
+      persist(nextChats);
+      if (activeChat.id === chatId) {
+        setActiveChatId(nextChats[0].id);
+      }
+    }
+
+    setDraft("");
+    setUndoStack([]);
+    setError("");
+  }
+
   function updateDraft(value) {
     setUndoStack((stack) => (stack.at(-1) === draft ? stack : [...stack, draft]));
     setDraft(value);
@@ -90,6 +119,19 @@ export default function App() {
       setDraft(stack[stack.length - 1]);
       return nextStack;
     });
+  }
+
+  async function copySummary(message) {
+    const text = message.sentences?.join("\n") || message.content;
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMessageId(message.id);
+      window.setTimeout(() => setCopiedMessageId(""), 1600);
+    } catch {
+      setError("Copy failed. Select the summary text and copy it manually.");
+    }
   }
 
   async function submitSummary() {
@@ -160,6 +202,14 @@ export default function App() {
   return (
     <main className="app">
       <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark">M</div>
+          <div>
+            <strong>Malayalam AI</strong>
+            <span>Extractive workspace</span>
+          </div>
+        </div>
+
         <div className="sidebar-section">
           <button className="new-chat-button" onClick={createChat}>
             <MessageSquarePlus size={18} />
@@ -171,17 +221,26 @@ export default function App() {
           <div className="section-label">Previous chats</div>
           <div className="history-list">
             {chats.map((chat) => (
-              <button
+              <div
                 className={`history-item ${chat.id === activeChat.id ? "active" : ""}`}
                 key={chat.id}
-                onClick={() => setActiveChatId(chat.id)}
               >
-                <span>{chat.title}</span>
-                <small>
-                  <Clock3 size={13} />
-                  {formatDate(chat.updatedAt)}
-                </small>
-              </button>
+                <button className="history-main" onClick={() => setActiveChatId(chat.id)}>
+                  <span>{chat.title}</span>
+                  <small>
+                    <Clock3 size={13} />
+                    {formatDate(chat.updatedAt)}
+                  </small>
+                </button>
+                <button
+                  aria-label="Delete chat"
+                  className="history-delete"
+                  onClick={() => deleteChat(chat.id)}
+                  title="Delete chat"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
             ))}
           </div>
         </div>
@@ -193,7 +252,10 @@ export default function App() {
           </div>
 
           <label>
-            Sentence count
+            <span className="setting-topline">
+              Sentence count
+              <strong>{sentenceCount}</strong>
+            </span>
             <input
               min="1"
               max="10"
@@ -201,7 +263,6 @@ export default function App() {
               value={sentenceCount}
               onChange={(event) => setSentenceCount(Number(event.target.value))}
             />
-            <span>{sentenceCount}</span>
           </label>
 
           <label className="check-row">
@@ -215,7 +276,10 @@ export default function App() {
 
           {!dynamicMmr && (
             <label>
-              Diversity penalty
+              <span className="setting-topline">
+                Diversity penalty
+                <strong>{diversity.toFixed(1)}</strong>
+              </span>
               <input
                 min="0"
                 max="1"
@@ -224,7 +288,6 @@ export default function App() {
                 value={diversity}
                 onChange={(event) => setDiversity(Number(event.target.value))}
               />
-              <span>{diversity.toFixed(1)}</span>
             </label>
           )}
         </div>
@@ -232,20 +295,40 @@ export default function App() {
 
       <section className="workspace">
         <header className="topbar">
-          <h1>Malayalam Extractive Summarizer</h1>
-          <p>Summarize Malayalam articles in a clean chat workspace with saved history.</p>
+          <div>
+            <h1>Malayalam Extractive Summarizer</h1>
+            <p>Summarize Malayalam articles in a clean chat workspace with saved history.</p>
+          </div>
+          <div className="topbar-status">
+            <span>{activeChat.messages.filter((message) => message.role === "assistant").length}</span>
+            summaries
+          </div>
         </header>
 
         <section className="conversation">
           {activeChat.messages.length === 0 ? (
             <div className="welcome">
+              <div className="welcome-icon">
+                <FileText size={26} />
+              </div>
               <h2>Start with an article</h2>
               <p>Paste a Malayalam news article below. Each result is saved as a chat so you can continue or revisit summaries later.</p>
             </div>
           ) : (
             activeChat.messages.map((message) => (
               <article className={`message ${message.role}`} key={message.id}>
-                <div className="message-label">{message.role === "user" ? "Article" : "Summary"}</div>
+                <div className="message-header">
+                  <div>
+                    <div className="message-label">{message.role === "user" ? "Article" : "Summary"}</div>
+                    <span>{formatDate(message.createdAt)}</span>
+                  </div>
+                  {message.role === "assistant" && (
+                    <button className="icon-button" onClick={() => copySummary(message)} title="Copy summary">
+                      <Clipboard size={16} />
+                      {copiedMessageId === message.id ? "Copied" : "Copy"}
+                    </button>
+                  )}
+                </div>
                 {message.role === "user" ? (
                   <p>{message.content}</p>
                 ) : (
@@ -258,9 +341,28 @@ export default function App() {
               </article>
             ))
           )}
+          {isLoading && (
+            <article className="message assistant typing-card">
+              <div className="message-header">
+                <div>
+                  <div className="message-label">Summary</div>
+                  <span>Generating</span>
+                </div>
+              </div>
+              <div className="typing-lines" aria-label="Generating summary">
+                <span />
+                <span />
+                <span />
+              </div>
+            </article>
+          )}
         </section>
 
         <section className="composer">
+          <div className="composer-header">
+            <span>Article input</span>
+            <small>{draft.trim().split(/\s+/).filter(Boolean).length} words</small>
+          </div>
           <textarea
             value={draft}
             onChange={(event) => updateDraft(event.target.value)}
