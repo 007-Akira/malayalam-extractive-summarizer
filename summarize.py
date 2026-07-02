@@ -78,11 +78,22 @@ def extract_with_mmr(embeddings, probabilities, k=3, diversity="auto"):
 
     return selected_indices
 
-def summarize_article(raw_text, k=3, diversity="auto"):
+def summarize_article(raw_text, k=None, diversity="auto"):
     """The main inference pipeline with Dual-Path Hybrid AI & Dynamic MMR."""
     sentences = segment_malayalam_text(raw_text)
     total_sentences = len(sentences)
     
+    # DYNAMIC K LOGIC: Adjust extraction length based on article size
+    if k is None:
+        if total_sentences <= 5:
+            k = 2
+        elif total_sentences <= 10:
+            k = 3
+        elif total_sentences <= 18:
+            k = 4
+        else:
+            k = 5
+            
     if total_sentences <= k:
         return "Article is too short to summarize.", sentences
         

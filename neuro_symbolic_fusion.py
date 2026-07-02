@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import re
+import math
 
 # ==========================================
 # PART 1: The Malayalam Feature Extractor
@@ -14,9 +15,14 @@ class MalayalamFeatureExtractor:
         pass
 
     def extract_features(self, sentence, sentence_index, total_sentences):
-        # Feature 1: Absolute Position (News articles have strong "Lead Bias")
-        # 1.0 for the first sentence, decaying towards 0.0 for the last
-        position_score = 1.0 - (sentence_index / max(1, total_sentences - 1))
+        # ----------------------------------------------------
+        # NEW Feature 1: Soft Position Score (Phase 4 Upgrade)
+        # Prevents the AI from blindly picking the first sentence 
+        # by using a capped exponential decay instead of a linear drop.
+        # ----------------------------------------------------
+        tau = max(3, 0.25 * total_sentences)
+        raw_pos = math.exp(-sentence_index / tau)
+        position_score = 0.5 * raw_pos
         
         # Feature 2: Sentence Length (Normalized)
         # Extremely short sentences are rarely good summaries. 
