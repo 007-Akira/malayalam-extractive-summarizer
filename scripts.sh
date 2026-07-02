@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+#SCRIPT TO RUN THE WEHBSITE
+#./scripts.sh dev
+
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -78,3 +82,5 @@ case "${1:-}" in
     exit 1
     ;;
 esac
+
+

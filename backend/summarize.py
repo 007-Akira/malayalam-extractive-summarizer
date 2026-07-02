@@ -20,6 +20,7 @@ project_root/
 """
 
 import re
+import threading
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
@@ -42,6 +43,8 @@ MURIL_ENCODER_NAME = "l3cube-pune/indic-sentence-bert-nli"
 LABSE_DIM = 768
 SYMBOLIC_DIM = 4
 DEFAULT_MODEL_KEY = "chotta_bheem"
+_ENCODER_CACHE: Dict[Tuple[str, str], SentenceTransformer] = {}
+_ENCODER_CACHE_LOCK = threading.Lock()
 
 MODEL_REGISTRY = {
     "sentence_classifier": {
@@ -68,6 +71,12 @@ MODEL_REGISTRY = {
         "architecture": "hybrid",
         "encoder": DEFAULT_ENCODER_NAME,
     },
+    "chotta_bheem_v2": {
+        "label": "Chotta Bheem V2",
+        "path": BASE_DIR / "models" / "chotta_bheem_finetuned.pt",
+        "architecture": "hybrid",
+        "encoder": DEFAULT_ENCODER_NAME,
+    },
 }
 
 
@@ -81,6 +90,17 @@ class SentenceClassifier(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.sigmoid(self.linear(x))
+
+
+def get_sentence_encoder(encoder_name: str, device: str) -> SentenceTransformer:
+    """Share encoder instances across compatible classifier checkpoints."""
+    cache_key = (encoder_name, device)
+
+    with _ENCODER_CACHE_LOCK:
+        if cache_key not in _ENCODER_CACHE:
+            _ENCODER_CACHE[cache_key] = SentenceTransformer(encoder_name, device=device)
+
+        return _ENCODER_CACHE[cache_key]
 
 
 # -----------------------------------------------------------------------------
@@ -517,7 +537,7 @@ class MalayalamSummarizer:
                 f"Selected model: {self.model_label} ({self.model_key})"
             )
 
-        self.labse_model = SentenceTransformer(self.encoder_name, device=str(self.device))
+        self.labse_model = get_sentence_encoder(self.encoder_name, str(self.device))
         self.feature_extractor = MalayalamFeatureExtractor()
 
         if self.architecture == "sentence":

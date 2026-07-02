@@ -618,6 +618,14 @@ button:disabled {
   margin-top: 0.18rem;
 }
 
+.model-chip {
+  color: #F59E0B;
+  display: inline;
+  font-size: 0.72rem;
+  font-weight: 760;
+  margin-left: 0.45rem;
+}
+
 .message-label {
   color: #A3A3A3;
   font-size: 0.76rem;
@@ -655,19 +663,6 @@ button:disabled {
   background: rgba(245, 158, 11, 0.14);
   border-color: rgba(245, 158, 11, 0.34);
   color: #F59E0B;
-}
-
-.listen-button.active {
-  animation: audio-glow 1.4s ease-in-out infinite;
-  background: rgba(245, 158, 11, 0.14);
-  border-color: rgba(245, 158, 11, 0.38);
-  color: #F59E0B;
-}
-
-.stop-audio-button:hover {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.24);
-  color: #EF4444;
 }
 
 .message p {
@@ -899,17 +894,6 @@ button:disabled {
   50% {
     opacity: 1;
     transform: translateX(8px);
-  }
-}
-
-@keyframes audio-glow {
-  0%,
-  100% {
-    box-shadow: 0 0 0 rgba(245, 158, 11, 0);
-  }
-
-  50% {
-    box-shadow: 0 0 18px rgba(245, 158, 11, 0.18);
   }
 }
 

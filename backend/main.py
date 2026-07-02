@@ -15,6 +15,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ],
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1):\d+$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,6 +31,7 @@ class SummarizeRequest(BaseModel):
         "hybrid_classifier",
         "muril_classifier",
         "chotta_bheem",
+        "chotta_bheem_v2",
     ] = DEFAULT_MODEL_KEY
 
 

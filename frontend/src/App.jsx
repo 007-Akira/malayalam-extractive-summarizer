@@ -1,5 +1,4 @@
 import {
-  Bot,
   Check,
   ChevronDown,
   ChevronRight,
@@ -13,22 +12,23 @@ import {
   RotateCcw,
   Send,
   SlidersHorizontal,
-  Square,
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 const HISTORY_KEY = "malayalam-summarizer-chats";
 const WORD_WARNING_LIMIT = 900;
 const WORD_DANGER_LIMIT = 1200;
 const MODEL_OPTIONS = [
+  { value: "chotta_bheem_v2", label: "Chotta Bheem V2" },
   { value: "chotta_bheem", label: "Chotta Bheem" },
   { value: "hybrid_classifier", label: "Hybrid Classifier" },
   { value: "muril_classifier", label: "MuRIL Classifier" },
   { value: "sentence_classifier", label: "Sentence Classifier" },
 ];
+const MODEL_LABELS = Object.fromEntries(MODEL_OPTIONS.map((option) => [option.value, option.label]));
 
 function loadChats() {
   try {
@@ -82,29 +82,8 @@ function formatSummaryText(message) {
   return message.sentences?.join("\n") || message.content;
 }
 
-function isMalayalamVoice(voice) {
-  const signature = `${voice.lang} ${voice.name}`.toLowerCase();
-  return signature.includes("ml") || signature.includes("malayalam");
-}
-
-function voiceScore(voice) {
-  const signature = `${voice.lang} ${voice.name}`.toLowerCase();
-  const femaleHints = ["female", "woman", "sobhana", "lekha", "veena", "swara", "heera", "zira", "samantha", "karen"];
-  let score = 0;
-
-  if (isMalayalamVoice(voice)) score += 100;
-  if (signature.includes("ml-in")) score += 30;
-  if (signature.includes("natural") || signature.includes("online")) score += 18;
-  if (femaleHints.some((hint) => signature.includes(hint))) score += 12;
-  if (voice.localService === false) score += 4;
-
-  return score;
-}
-
-function pickMalayalamVoice(voices) {
-  if (!voices.length) return null;
-
-  return [...voices].sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null;
+function modelLabel(modelKey) {
+  return MODEL_LABELS[modelKey] || modelKey || "Selected model";
 }
 
 export default function App() {
@@ -130,9 +109,6 @@ export default function App() {
   const [renameValue, setRenameValue] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsCollapsed, setSettingsCollapsed] = useState(false);
-  const [speakingMessageId, setSpeakingMessageId] = useState("");
-  const [speechPaused, setSpeechPaused] = useState(false);
-  const [speechVoices, setSpeechVoices] = useState([]);
 
   const activeChat = useMemo(() => {
     return chats.find((chat) => chat.id === activeChatId) || chats[0];
@@ -140,25 +116,6 @@ export default function App() {
   const draftWordCount = useMemo(() => draft.trim().split(/\s+/).filter(Boolean).length, [draft]);
   const wordCountTone =
     draftWordCount >= WORD_DANGER_LIMIT ? "danger" : draftWordCount >= WORD_WARNING_LIMIT ? "warn" : "";
-  const activeSpeechVoice = useMemo(() => {
-    return pickMalayalamVoice(speechVoices);
-  }, [speechVoices]);
-
-  useEffect(() => {
-    if (!("speechSynthesis" in window)) return undefined;
-
-    function loadVoices() {
-      setSpeechVoices(window.speechSynthesis.getVoices());
-    }
-
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-
-    return () => {
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.onvoiceschanged = null;
-    };
-  }, []);
 
   function persist(nextChats) {
     setChats(nextChats);
@@ -243,58 +200,6 @@ export default function App() {
     }
   }
 
-  function speakSummary(message) {
-    if (!("speechSynthesis" in window)) {
-      setError("Text-to-speech is not supported in this browser.");
-      return;
-    }
-
-    if (speakingMessageId === message.id && speechPaused) {
-      window.speechSynthesis.resume();
-      setSpeechPaused(false);
-      return;
-    }
-
-    if (speakingMessageId === message.id) {
-      window.speechSynthesis.pause();
-      setSpeechPaused(true);
-      return;
-    }
-
-    const text = formatSummaryText(message);
-    if (!text) return;
-
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = activeSpeechVoice?.lang || "ml-IN";
-    utterance.rate = 0.88;
-    utterance.pitch = 1.08;
-    utterance.voice = activeSpeechVoice;
-    utterance.onend = () => {
-      setSpeakingMessageId("");
-      setSpeechPaused(false);
-    };
-    utterance.onerror = () => {
-      setSpeakingMessageId("");
-      setSpeechPaused(false);
-      setError("Unable to read this summary aloud in the current browser voice setup.");
-    };
-
-    setError("");
-    setSpeakingMessageId(message.id);
-    setSpeechPaused(false);
-    window.speechSynthesis.speak(utterance);
-  }
-
-  function stopSpeaking() {
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-    setSpeakingMessageId("");
-    setSpeechPaused(false);
-  }
-
   async function submitSummary() {
     const text = draft.trim();
     if (!text || isLoading) return;
@@ -314,7 +219,15 @@ export default function App() {
         }),
       });
 
-      const payload = await response.json();
+      const responseText = await response.text();
+      let payload = {};
+
+      try {
+        payload = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        payload = { detail: responseText };
+      }
+
       if (!response.ok) {
         throw new Error(payload.detail || "Unable to summarize this article.");
       }
@@ -469,6 +382,7 @@ export default function App() {
                 <span className="setting-topline">Model</span>
                 <select
                   className="model-select"
+                  disabled={isLoading}
                   value={selectedModel}
                   onChange={(event) => setSelectedModel(event.target.value)}
                 >
@@ -569,31 +483,14 @@ export default function App() {
                 <div className="message-header">
                   <div>
                     <div className="message-label">{message.role === "user" ? "Article" : "Summary"}</div>
-                    <span>{formatDate(message.createdAt)}</span>
+                    <span>
+                      {formatDate(message.createdAt)}
+                      {message.role === "assistant" && (
+                        <small className="model-chip">{modelLabel(message.settings?.model)}</small>
+                      )}
+                    </span>
                   </div>
                   <div className="message-actions">
-                    {message.role === "assistant" && (
-                      <>
-                        <button
-                          aria-label={speakingMessageId === message.id && !speechPaused ? "Pause summary audio" : "Read summary aloud"}
-                          className={`icon-button listen-button ${speakingMessageId === message.id ? "active" : ""}`}
-                          onClick={() => speakSummary(message)}
-                          title={speakingMessageId === message.id && !speechPaused ? "Pause" : "Listen"}
-                        >
-                          <Bot size={17} />
-                        </button>
-                        {speakingMessageId === message.id && (
-                          <button
-                            aria-label="Stop summary audio"
-                            className="icon-button stop-audio-button"
-                            onClick={stopSpeaking}
-                            title="Stop"
-                          >
-                            <Square size={14} />
-                          </button>
-                        )}
-                      </>
-                    )}
                     <button
                       aria-label={`Copy ${message.role === "user" ? "article" : "summary"}`}
                       className={`icon-button ${copiedMessageId === message.id ? "copied" : ""}`}
