@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-#SCRIPT TO RUN THE WEHBSITE
+#SCRIPT TO RUN THE WEBSITE
 #./scripts.sh dev
 
 set -euo pipefail

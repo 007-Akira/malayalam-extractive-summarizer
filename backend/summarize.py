@@ -106,40 +106,10 @@ def get_sentence_encoder(encoder_name: str, device: str) -> SentenceTransformer:
 # -----------------------------------------------------------------------------
 # Sentence segmentation
 # -----------------------------------------------------------------------------
-
-def segment_malayalam_text(text: str) -> List[str]:
-    """
-    Split Malayalam news text into sentences.
-
-    Handles:
-    - regular full stop / question mark / exclamation mark
-    - Devanagari danda-like punctuation if present
-    - line-separated input when punctuation splitting fails
-    """
-    if not text or not text.strip():
-        return []
-
-    raw_lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
-
-    normalized = re.sub(r"\s+", " ", text.strip())
-    parts = re.split(r"(?<=[.!?।])\s+", normalized)
-    sentences = [clean_sentence(part) for part in parts]
-    sentences = [sent for sent in sentences if len(sent) > 2]
-
-    # If punctuation-based splitting failed, fall back to non-empty lines.
-    if len(sentences) <= 1 and len(raw_lines) > 1:
-        sentences = [clean_sentence(line) for line in raw_lines]
-        sentences = [sent for sent in sentences if len(sent) > 2]
-
-    return sentences
-
-
-def clean_sentence(sentence: str) -> str:
-    """Remove common bullet/numbering noise without changing sentence content."""
-    sentence = sentence.strip()
-    sentence = re.sub(r"^[\-–—•*]+\s*", "", sentence)
-    sentence = re.sub(r"^\d+[.)]\s*", "", sentence)
-    return sentence.strip()
+# Sentence splitting is delegated to sentence_splitter.py so abbreviation handling
+# stays centralized. Keep sentence_splitter.py in the same backend directory as
+# this file. It should expose segment_malayalam_text(text: str) -> List[str].
+from sentence_splitter import segment_malayalam_text
 
 
 # -----------------------------------------------------------------------------
