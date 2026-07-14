@@ -20,6 +20,16 @@ backend/models/
 *.ckpt
 *.safetensors
 
+# Local human-evaluation data, tooling, and generated research artifacts
+backend/data/[Hh]uman_annotation*.csv
+backend/results/
+backend/evaluation_report.txt
+PROJECT_PIPELINE_AND_RESEARCH_AUDIT.txt
+backend/config/dmmr_best_config.json
+backend/evaluate_human_batch.py
+backend/evaluate_dmmr.py
+backend/search_dmmr_parameters.py
+
 # Local app/runtime state
 .summarizer_chat_history.json
 backend/.summarizer_chat_history.json
