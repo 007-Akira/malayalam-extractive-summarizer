@@ -31,6 +31,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 from neuro_symbolic_fusion import HybridFusionClassifier, MalayalamFeatureExtractor
+from dmmr import DMMRConfig, DMMRResult, load_dmmr_config, select_dynamic_mmr
 
 
 try:
@@ -43,6 +44,7 @@ MURIL_ENCODER_NAME = "l3cube-pune/indic-sentence-bert-nli"
 LABSE_DIM = 768
 SYMBOLIC_DIM = 4
 DEFAULT_MODEL_KEY = "chotta_bheem"
+DEFAULT_DMMR_CONFIG_PATH = BASE_DIR / "config" / "dmmr_best_config.json"
 _ENCODER_CACHE: Dict[Tuple[str, str], SentenceTransformer] = {}
 _ENCODER_CACHE_LOCK = threading.Lock()
 
@@ -323,110 +325,65 @@ def extract_with_mmr(
     use_auto_diversity: bool = True,
     use_normalized_relevance: bool = False,
     debug: bool = False,
-) -> List[int]:
+    config: Optional[DMMRConfig] = None,
+    return_result: bool = False,
+) -> Union[List[int], DMMRResult]:
     """
-    Coverage-aware Dynamic MMR extraction.
+    Configurable coverage-aware Dynamic MMR extraction.
 
-    Score = relevance
-            - semantic_redundancy_penalty
-            + role_coverage_bonus
-            + cluster_coverage_bonus
-            + specificity_bonus
-            - future_condition_penalty
+    The legacy parameters remain accepted for API compatibility. New calls
+    should pass a DMMRConfig when experiment-level control is required.
     """
     num_sentences = len(probabilities)
     if num_sentences == 0:
-        return []
+        empty_result = select_dynamic_mmr(
+            np.empty((0, 0), dtype=np.float32), [], 0, config or DMMRConfig()
+        )
+        return empty_result if return_result else []
 
     k = max(1, min(int(k), num_sentences))
     if num_sentences <= k:
-        return list(range(num_sentences))
+        result = select_dynamic_mmr(
+            embeddings, probabilities, k, config or DMMRConfig()
+        )
+        return result if return_result else result.selected_indices
 
-    if diversity is None and use_auto_diversity:
-        diversity = compute_dynamic_diversity(embeddings)
-        print(f"   [Dynamic MMR] Auto-tuned diversity penalty to: {diversity}")
-    elif diversity is None:
-        diversity = 0.35
-
-    probabilities = np.asarray(probabilities, dtype=np.float32)
-    relevance_scores = minmax_normalize(probabilities) if use_normalized_relevance else probabilities
-
+    effective_config = config or load_dmmr_config(DEFAULT_DMMR_CONFIG_PATH)
+    if config is None and use_normalized_relevance:
+        effective_config = DMMRConfig(relevance_normalization="minmax")
+    if config is None and diversity is not None:
+        # Old diversity represented the redundancy coefficient. Conventional
+        # MMR lambda is its complement.
+        fixed_lambda = float(np.clip(1.0 - float(diversity), 0.0, 1.0))
+        effective_config = DMMRConfig(
+            relevance_normalization=effective_config.relevance_normalization,
+            lambda_min=min(effective_config.lambda_min, fixed_lambda),
+            lambda_max=max(effective_config.lambda_max, fixed_lambda),
+            fixed_lambda=fixed_lambda,
+            use_dynamic_lambda=False,
+        )
     clusters = assign_similarity_clusters(embeddings)
     sentence_roles = [detect_roles(sentence) for sentence in sentences]
-
-    selected_indices: List[int] = []
-    unselected_indices: List[int] = list(range(num_sentences))
-
-    # First pick: strongest salience. Do not use bonuses here; keep it model-led.
-    first_idx = int(np.argmax(relevance_scores))
-    selected_indices.append(first_idx)
-    unselected_indices.remove(first_idx)
-
-    while len(selected_indices) < k:
-        mmr_scores: List[Tuple[float, int, Dict[str, float]]] = []
-
-        selected_embeddings = np.vstack([embeddings[s] for s in selected_indices])
-        selected_roles: Set[str] = set()
-        for selected_idx in selected_indices:
-            selected_roles.update(sentence_roles[selected_idx])
-
-        selected_clusters = {clusters[selected_idx] for selected_idx in selected_indices}
-
-        for idx in unselected_indices:
-            importance = float(relevance_scores[idx])
-
-            sims = cosine_similarity(
-                np.asarray(embeddings[idx]).reshape(1, -1),
-                selected_embeddings,
-            )[0]
-            max_sim = float(np.max(sims)) if len(sims) else 0.0
-
-            new_roles = sentence_roles[idx] - selected_roles
-            role_bonus = min(0.10, 0.04 * len(new_roles))
-
-            if clusters[idx] not in selected_clusters:
-                cluster_bonus = 0.05
-            else:
-                cluster_bonus = -0.04
-
-            spec_bonus = specificity_bonus(sentences[idx])
-            fut_penalty = future_condition_penalty(sentences[idx])
-
-            adjusted_score = (
-                importance
-                - float(diversity) * max_sim
-                + role_bonus
-                + cluster_bonus
-                + spec_bonus
-                - fut_penalty
-            )
-
-            components = {
-                "importance": importance,
-                "max_sim": max_sim,
-                "role_bonus": role_bonus,
-                "cluster_bonus": cluster_bonus,
-                "specificity_bonus": spec_bonus,
-                "future_penalty": fut_penalty,
-                "adjusted_score": adjusted_score,
-            }
-            mmr_scores.append((adjusted_score, idx, components))
-
-        mmr_scores.sort(reverse=True, key=lambda item: item[0])
-        best_next_idx = mmr_scores[0][1]
-        selected_indices.append(best_next_idx)
-        unselected_indices.remove(best_next_idx)
-
-        if debug:
-            best_components = mmr_scores[0][2]
-            print(
-                f"   [MMR Pick] idx={best_next_idx} "
-                f"score={best_components['adjusted_score']:.4f} "
-                f"importance={best_components['importance']:.4f} "
-                f"sim={best_components['max_sim']:.4f}"
-            )
-
-    return selected_indices
+    specificity_scores = [specificity_bonus(sentence) / 0.10 for sentence in sentences]
+    future_scores = [future_condition_penalty(sentence) / 0.05 for sentence in sentences]
+    result = select_dynamic_mmr(
+        embeddings=embeddings,
+        probabilities=probabilities,
+        k=k,
+        config=effective_config,
+        role_sets=sentence_roles,
+        cluster_ids=clusters,
+        specificity_scores=specificity_scores,
+        future_scores=future_scores,
+    )
+    if debug:
+        print(
+            f"   [D-MMR] lambda={result.lambda_value:.4f} "
+            f"variance={result.document_variance:.4f} "
+            f"retention={result.relevance_retention:.4f} "
+            f"fallback={result.fallback_used}"
+        )
+    return result if return_result else result.selected_indices
 
 
 # -----------------------------------------------------------------------------
@@ -434,18 +391,16 @@ def extract_with_mmr(
 # -----------------------------------------------------------------------------
 
 def choose_dynamic_k(total_sentences: int) -> int:
-    """Choose summary length based on article size."""
-    if total_sentences <= 1:
-        return total_sentences
-    if total_sentences <= 3:
-        return 1
+    """Choose production summary length without consulting reference labels."""
+    if total_sentences <= 0:
+        return 0
     if total_sentences <= 5:
+        return 1
+    if total_sentences <= 8:
         return 2
-    if total_sentences <= 10:
+    if total_sentences <= 12:
         return 3
-    if total_sentences <= 18:
-        return 4
-    return 5
+    return 4
 
 
 def print_debug_table(
