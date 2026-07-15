@@ -40,7 +40,7 @@ except NameError:
     BASE_DIR = Path.cwd()
 
 DEFAULT_ENCODER_NAME = "sentence-transformers/LaBSE"
-MURIL_ENCODER_NAME = "l3cube-pune/indic-sentence-bert-nli"
+INDIC_SBERT_ENCODER_NAME = "l3cube-pune/indic-sentence-bert-nli"
 LABSE_DIM = 768
 SYMBOLIC_DIM = 4
 DEFAULT_MODEL_KEY = "chotta_bheem"
@@ -61,11 +61,11 @@ MODEL_REGISTRY = {
         "architecture": "hybrid",
         "encoder": DEFAULT_ENCODER_NAME,
     },
-    "muril_classifier": {
-        "label": "MuRIL Classifier",
-        "path": BASE_DIR / "models" / "muril_classifier.pt",
+    "indicbert_classifier": {
+        "label": "IndicBERT",
+        "path": BASE_DIR / "models" / "indicbert_classifier.pt",
         "architecture": "hybrid",
-        "encoder": MURIL_ENCODER_NAME,
+        "encoder": INDIC_SBERT_ENCODER_NAME,
     },
     "chotta_bheem": {
         "label": "Chotta Bheem",

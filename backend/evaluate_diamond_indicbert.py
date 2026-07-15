@@ -58,7 +58,7 @@ def extract_with_mmr_silent(embeddings, probabilities, k=3):
 
 def main():
     print("="*50)
-    print("🇮🇳 EVALUATING MuRIL (INDIA-SPECIFIC) BASELINE")
+    print("EVALUATING INDICBERT")
     print("="*50)
 
     try:
@@ -67,18 +67,17 @@ def main():
         print("Error: data/diamond_batch_1000_ANNOTATED.csv not found!")
         return
 
-    print("1. Loading Semantic Engine (MuRIL/Indic-SBERT)...")
-    # Make sure this string EXACTLY matches what Godly used in train_muril.py
-    # e.g., "l3cube-pune/indic-sentence-bert-nli" OR "google/muril-base-cased"
+    print("1. Loading Semantic Engine (IndicBERT)...")
+    # Keep this encoder aligned with train_indicbert.py.
     embedder = SentenceTransformer("l3cube-pune/indic-sentence-bert-nli") 
     
     print("2. Loading Linguistic Feature Extractor...")
     feature_extractor = MalayalamFeatureExtractor()
     
-    print("3. Loading Custom PyTorch Brain (muril_classifier.pt)...")
+    print("3. Loading Custom PyTorch Brain (indicbert_classifier.pt)...")
     classifier = HybridFusionClassifier(labse_dim=768, symbolic_dim=4)
     # Pointing to the new model Godly trained
-    classifier.load_state_dict(torch.load("models/muril_classifier.pt", map_location=torch.device('cpu'), weights_only=True))
+    classifier.load_state_dict(torch.load("models/indicbert_classifier.pt", map_location=torch.device('cpu'), weights_only=True))
     classifier.eval()
 
     true_positives = 0
@@ -99,7 +98,7 @@ def main():
 
         if total_sentences <= k: continue
 
-        # --- PATH A: MuRIL Semantics ---
+        # --- PATH A: IndicBERT Semantics ---
         embeddings = embedder.encode(sentences)
         X_tensor = torch.tensor(embeddings, dtype=torch.float32)
 
@@ -129,7 +128,7 @@ def main():
     f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
 
     print("\n" + "="*50)
-    print("🏆 MuRIL BASELINE METRICS (Diamond Batch)")
+    print("INDICBERT METRICS (Diamond Batch)")
     print("="*50)
     print(f"Precision : {precision:.4f}")
     print(f"Recall    : {recall:.4f}")
@@ -137,7 +136,7 @@ def main():
     print("="*50)
     
     if f1 > 0.9280:
-        print("🔥 INCREDIBLE! MuRIL outperformed LaBSE!")
+        print("IndicBERT outperformed the historical LaBSE score.")
     else:
         print("💡 LaBSE remains the champion, but this is an excellent comparison for the paper!")
 

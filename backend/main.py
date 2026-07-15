@@ -29,7 +29,7 @@ class SummarizeRequest(BaseModel):
     model: Literal[
         "sentence_classifier",
         "hybrid_classifier",
-        "muril_classifier",
+        "indicbert_classifier",
         "chotta_bheem",
         "chotta_bheem_v2",
     ] = DEFAULT_MODEL_KEY

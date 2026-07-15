@@ -30,7 +30,7 @@ included in the repository:
 | Chotta Bheem V2 | `chotta_bheem_finetuned.pt` |
 | Sentence Classifier | `malayalam_sentence_classifier.pt` |
 | Hybrid Classifier | `malayalam_hybrid_classifier.pt` |
-| Indic Sentence-BERT Hybrid | `muril_classifier.pt` |
+| IndicBERT | `indicbert_classifier.pt` |
 
 Chotta Bheem is the default model used by the application.
 
@@ -124,7 +124,7 @@ Supported model keys are:
 - `chotta_bheem_v2`
 - `sentence_classifier`
 - `hybrid_classifier`
-- `muril_classifier`
+- `indicbert_classifier`
 
 ## Frontend configuration
 

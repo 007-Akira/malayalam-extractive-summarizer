@@ -22,10 +22,10 @@ const HISTORY_KEY = "malayalam-summarizer-chats";
 const WORD_WARNING_LIMIT = 900;
 const WORD_DANGER_LIMIT = 1200;
 const MODEL_OPTIONS = [
-  { value: "chotta_bheem_v2", label: "Chotta Bheem V2", recommended: true },
-  { value: "chotta_bheem", label: "Chotta Bheem" },
+  { value: "chotta_bheem", label: "Chotta Bheem", recommended: true },
+  { value: "chotta_bheem_v2", label: "Chotta Bheem V2" },
   { value: "hybrid_classifier", label: "Hybrid Classifier" },
-  { value: "muril_classifier", label: "MuRIL Classifier" },
+  { value: "indicbert_classifier", label: "IndicBERT" },
   { value: "sentence_classifier", label: "Sentence Classifier" },
 ];
 const MODEL_LABELS = Object.fromEntries(MODEL_OPTIONS.map((option) => [option.value, option.label]));
@@ -98,7 +98,7 @@ export default function App() {
   const [draft, setDraft] = useState("");
   const [undoStack, setUndoStack] = useState([]);
   const [sentenceCount, setSentenceCount] = useState(3);
-  const [selectedModel, setSelectedModel] = useState("chotta_bheem_v2");
+  const [selectedModel, setSelectedModel] = useState("chotta_bheem");
   const [dynamicMmr, setDynamicMmr] = useState(true);
   const [diversity, setDiversity] = useState(0.3);
   const [summaryFormat, setSummaryFormat] = useState("bullets");
@@ -392,9 +392,9 @@ export default function App() {
                     </option>
                   ))}
                 </select>
-                {selectedModel === "chotta_bheem_v2" && (
+                {selectedModel === "chotta_bheem" && (
                   <small className="selected-model-note">
-                    Chotta Bheem V2 <sub className="recommended-tag">recommended</sub>
+                    Chotta Bheem <sub className="recommended-tag">recommended</sub>
                   </small>
                 )}
               </label>

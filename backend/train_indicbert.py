@@ -17,7 +17,7 @@ class MalayalamHybridDataset(Dataset):
         
         # We need LaBSE to vectorize the text on the fly (or load pre-computed)
         # Change this line in train_hybrid.py:
-        self.labse = SentenceTransformer("l3cube-pune/indic-sentence-bert-nli")
+        self.indicbert = SentenceTransformer("l3cube-pune/indic-sentence-bert-nli")
         self.feature_extractor = MalayalamFeatureExtractor()
         
         # We assume your CSV has: 'Sentence', 'Label', 'Sentence_Index', 'Total_Sentences'
@@ -35,8 +35,8 @@ class MalayalamHybridDataset(Dataset):
         label = float(row['Label']) # 1.0 (Important) or 0.0 (Not Important)
         
         # 1. Get Path A data: Deep Semantics
-        labse_embedding = self.labse.encode(sentence)
-        labse_tensor = torch.tensor(labse_embedding, dtype=torch.float32)
+        indicbert_embedding = self.indicbert.encode(sentence)
+        indicbert_tensor = torch.tensor(indicbert_embedding, dtype=torch.float32)
         
         # 2. Get Path B data: Malayalam Symbolic Features
         symbolic_features = self.feature_extractor.extract_features(
@@ -48,7 +48,7 @@ class MalayalamHybridDataset(Dataset):
         
         label_tensor = torch.tensor([label], dtype=torch.float32)
         
-        return labse_tensor, symbolic_tensor, label_tensor
+        return indicbert_tensor, symbolic_tensor, label_tensor
 
 def main():
     print("="*50)
@@ -79,17 +79,17 @@ def main():
         total_loss = 0
         
         progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{epochs}")
-        for labse_batch, symbolic_batch, labels_batch in progress_bar:
+        for indicbert_batch, symbolic_batch, labels_batch in progress_bar:
             
             # Move data to Mac GPU
-            labse_batch = labse_batch.to(device)
+            indicbert_batch = indicbert_batch.to(device)
             symbolic_batch = symbolic_batch.to(device)
             labels_batch = labels_batch.to(device)
             
             optimizer.zero_grad()
             
             # Feed BOTH inputs to the network
-            predictions = model(labse_batch, symbolic_batch)
+            predictions = model(indicbert_batch, symbolic_batch)
             
             loss = criterion(predictions, labels_batch)
             loss.backward()
@@ -100,8 +100,8 @@ def main():
             
     # 5. Save the final Research-Grade Model
     print("Saving hybrid model weights...")
-    torch.save(model.state_dict(), "models/malayalam_hybrid_classifier.pt")
-    print("✅ Training Complete! Model saved as malayalam_hybrid_classifier.pt")
+    torch.save(model.state_dict(), "models/indicbert_classifier.pt")
+    print("✅ Training Complete! Model saved as indicbert_classifier.pt")
 
 if __name__ == "__main__":
     main()
