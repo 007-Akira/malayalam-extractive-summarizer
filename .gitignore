@@ -7,18 +7,16 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# Raw/private source data and model files
+# Raw/private source data
 news.csv
 news_data.csv
 **/news.csv
 **/news_data.csv
 *.gz
-models/
-backend/models/
-*.pt
-*.pth
-*.ckpt
-*.safetensors
+/models/
+
+# Keep trained application checkpoints in backend/models/ versioned so the
+# repository remains self-contained when mirrored or imported elsewhere.
 
 # Local human-evaluation data, tooling, and generated research artifacts
 backend/data/[Hh]uman_annotation*.csv
