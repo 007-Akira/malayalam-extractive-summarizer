@@ -1,123 +1,180 @@
-📰 Malayalam Extractive Summarizer (Neuro-Symbolic AI)
+# Malayalam Extractive Summarizer
 
-An advanced, state-of-the-art extractive text summarizer for the Malayalam language. This project tackles the "black box" limitations of standard multilingual NLP models by introducing a novel Dual-Path Neuro-Symbolic Architecture, achieving a scientifically validated 0.9280 F1 Score.
+A Malayalam extractive text-summarization application with a FastAPI backend
+and a React/Vite frontend. It ranks sentences from the source article using
+multilingual sentence embeddings, learned classifiers, Malayalam-aware
+features, and redundancy-aware sentence selection.
 
-🚀 Key Features
+The generated summary contains sentences selected directly from the source
+article; it does not generate or rewrite facts.
 
-Neuro-Symbolic Hybrid Brain: Fuses deep semantic understanding (LaBSE vectors) with traditional Dravidian linguistic statistics (Lead Bias, Agglutination Density, etc.).
+## Features
 
-Dynamic MMR (D-MMR): An auto-tuning inference engine that calculates a document's semantic variance on the fly to dynamically penalize redundancy and ensure diverse summaries.
+- Malayalam sentence segmentation
+- Extractive sentence ranking
+- Multiple trained checkpoint options
+- Dynamic summary length and configurable sentence count
+- Redundancy-aware D-MMR selection
+- Chronological ordering of selected sentences
+- FastAPI REST API
+- React/Vite web interface
 
-Cross-Domain Generalization: Proven to generalize beyond news structures (tested on out-of-distribution Wikipedia data).
+## Available models
 
-Interactive UI: Includes a fully functional Streamlit web application with native Malayalam complex text layout (CTL) rendering.
+The trained application checkpoints are stored in `backend/models/` and are
+included in the repository:
 
-🧠 The Architecture: Dual-Path Fusion
+| Application option | Checkpoint |
+|---|---|
+| Chotta Bheem | `chotta_bheem.pt` |
+| Chotta Bheem V2 | `chotta_bheem_finetuned.pt` |
+| Sentence Classifier | `malayalam_sentence_classifier.pt` |
+| Hybrid Classifier | `malayalam_hybrid_classifier.pt` |
+| Indic Sentence-BERT Hybrid | `muril_classifier.pt` |
 
-Pure deep learning models treat sentences as isolated mathematical vectors, ignoring the structural reality of news journalism and language morphology. Our architecture solves this via a Dual-Path neural network:
+Chotta Bheem is the default model used by the application.
 
-Path A (Deep Semantics): Sentences are passed through the multilingual LaBSE transformer, generating 768-dimensional dense vectors representing contextual meaning.
+The classifiers use either
+[`sentence-transformers/LaBSE`](https://huggingface.co/sentence-transformers/LaBSE)
+or
+[`l3cube-pune/indic-sentence-bert-nli`](https://huggingface.co/l3cube-pune/indic-sentence-bert-nli)
+for sentence embeddings. These encoder models are downloaded from Hugging Face
+on first use and are cached locally, so the first run requires internet access.
 
-Path B (Symbolic Linguistics): A custom feature extractor analyzes the Malayalam text for structural cues:
+## Requirements
 
-Position Score (Lead Bias)
+- Python 3.10 or newer
+- Node.js 18 or newer
+- npm
+- Internet access for initial encoder download
 
-Sentence Length Penalty
+## Installation
 
-Complex Word Density (Agglutination Proxy)
+Clone the repository and enter the project directory:
 
-Numeral / Data Density
-
-Fusion & Inference: Both paths are concatenated into a dense neural classifier (equipped with Dropout regularization to prevent overfitting). The output probability is then passed through our Dynamic Maximal Marginal Relevance (D-MMR) algorithm for final extraction.
-
-📊 Performance & Evaluation Metrics
-
-The model was iteratively evaluated on strictly isolated, hold-out "Platinum" (700 articles) and "Diamond" (1,000 articles) test sets. The ground-truth data was generated via an automated Oracle ROUGE-L annotator.
-
-Model Architecture
-
-Precision
-
-Recall
-
-F1 Score
-
-Unsupervised Baseline (Centroid)
-
-0.3900
-
-0.3900
-
-0.3900
-
-Supervised Deep Learning (Pure LaBSE)
-
-0.6100
-
-0.6100
-
-0.6100
-
-Neuro-Symbolic Hybrid (Platinum Batch)
-
-0.9210
-
-0.9210
-
-0.9210
-
-Neuro-Symbolic + D-MMR (Diamond Batch)
-
-0.9280
-
-0.9280
-
-0.9280
-
-Note: The massive jump from 0.61 to 0.92 demonstrates the critical importance of injecting explicit structural cues (like Lead Bias) into neural networks for news summarization.
-
-💻 Installation & Quick Start
-
-1. Clone the Repository
-
-git clone [https://github.com/007-Akira/malayalam-extractive-summarizer.git](https://github.com/007-Akira/malayalam-extractive-summarizer.git)
+```bash
+git clone git@gitlab.com:icfoss/Internship-projects/malayalam-extractive-summarizer.git
 cd malayalam-extractive-summarizer
+```
 
+Create and activate a Python virtual environment:
 
-2. Install Dependencies
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
 
-Ensure you have Python 3.8+ installed, then run:
+Install the backend and frontend dependencies:
 
-pip install -r requirements.txt
+```bash
+./scripts.sh install
+```
 
+## Run the application
 
-3. Run the Web Application
+Start the backend and frontend together:
 
-Launch the interactive Streamlit UI to test the AI on any Malayalam text:
+```bash
+./scripts.sh dev
+```
 
-streamlit run app.py
+Open the frontend at:
 
+```text
+http://127.0.0.1:5173
+```
 
-📂 Repository Structure
+The API is available at:
 
-app.py: The Streamlit frontend web application.
+```text
+http://127.0.0.1:8000
+```
 
-summarize.py: Core inference engine containing the Hybrid initialization and D-MMR logic.
+Interactive API documentation is available at:
 
-neuro_symbolic_fusion.py: PyTorch class definitions for the Dual-Path network and MalayalamFeatureExtractor.
+```text
+http://127.0.0.1:8000/docs
+```
 
-train_hybrid.py: M-Series (MPS) optimized PyTorch training script.
+The services can also be started separately:
 
-oracle_rouge.py & auto_annotate.py: Scripts used to automate the dataset labeling via ROUGE metrics.
+```bash
+./scripts.sh backend
+./scripts.sh frontend
+```
 
-create_diamond_testset.py & evaluate_diamond.py: Scripts used to generate and evaluate the unseen 1,000-article test set to mathematically prove zero overfitting.
+## API example
 
-generate_wikipedia_test.py: Out-of-distribution (OOD) cross-domain testing script.
+Send a Malayalam article to `POST /summarize`:
 
-🔮 Future Work
+```bash
+curl -X POST http://127.0.0.1:8000/summarize \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "മലയാളം ലേഖനം ഇവിടെ നൽകുക.",
+    "sentence_count": 3,
+    "diversity": "auto",
+    "model": "chotta_bheem"
+  }'
+```
 
-Morphological Parser Integration: Upgrading the "Complex Word Density" proxy to a true root-word morphological analyzer (e.g., IndicNLP).
+Supported model keys are:
 
-Coreference Resolution: Training the network to resolve pronouns ("He", "She", "It") across sentences prior to extraction.
+- `chotta_bheem`
+- `chotta_bheem_v2`
+- `sentence_classifier`
+- `hybrid_classifier`
+- `muril_classifier`
 
-Abstractive Extension: Utilizing the highly accurate extractive output as the prompt context for a fine-tuned Malayalam Large Language Model (LLM) to generate flowing, abstractive paragraphs.
+## Frontend configuration
+
+The frontend connects to `http://127.0.0.1:8000` by default. To use a different
+API address, set `VITE_API_URL` before starting or building the frontend:
+
+```bash
+VITE_API_URL=https://example.com/api ./scripts.sh build
+```
+
+## Project structure
+
+```text
+.
+├── backend/
+│   ├── data/                    # Training and evaluation datasets
+│   ├── models/                  # Trained classifier checkpoints
+│   ├── tests/                   # Backend tests
+│   ├── main.py                  # FastAPI application
+│   ├── summarize.py             # Inference pipeline
+│   ├── dmmr.py                  # Redundancy-aware selection
+│   ├── sentence_splitter.py     # Malayalam sentence segmentation
+│   └── requirements.txt         # Python dependencies
+├── frontend/
+│   ├── public/
+│   ├── src/                     # React application
+│   └── package.json             # Frontend dependencies
+└── scripts.sh                   # Installation, development, and build commands
+```
+
+## Testing and build
+
+Run the backend test suite:
+
+```bash
+python -m unittest discover -s backend/tests -v
+```
+
+Build the frontend:
+
+```bash
+./scripts.sh build
+```
+
+## Notes
+
+- The repository contains the trained classifier checkpoints, but not the full
+  pretrained sentence encoders downloaded from Hugging Face.
+- CPU inference is supported. A compatible accelerator may be selected by
+  PyTorch when available.
+- Some files under `backend/` are research, training, or evaluation utilities;
+  `backend/main.py` and `backend/summarize.py` form the application inference
+  path.
