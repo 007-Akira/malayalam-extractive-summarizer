@@ -48,6 +48,15 @@ on first use and are cached locally, so the first run requires internet access.
 - npm
 - Internet access for initial encoder download
 
+## Dataset and research artifacts
+
+Large training and evaluation datasets, human-annotation batches, experiment
+outputs, and generated research reports are intentionally not included in this
+repository. They were local development artifacts and have been deleted from
+the original development machine. Anyone retraining or reproducing the
+experiments must provide equivalent datasets separately; the checked-in model
+checkpoints are sufficient for running inference.
+
 ## Installation
 
 Clone the repository and enter the project directory:
@@ -140,7 +149,7 @@ VITE_API_URL=https://example.com/api ./scripts.sh build
 ```text
 .
 ├── backend/
-│   ├── data/                    # Training and evaluation datasets
+│   ├── data/                    # Small checked-in evaluation samples only
 │   ├── models/                  # Trained classifier checkpoints
 │   ├── tests/                   # Backend tests
 │   ├── main.py                  # FastAPI application
